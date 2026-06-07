@@ -3,7 +3,7 @@ import { useState } from "react";
 import {
   carregarConfiguracao,
   salvarConfiguracao,
-} from "../services/configuracaoStorage";
+} from "../services/ConfiguracaoStorage";
 
 export default function ConfiguracaoFinanceira() {
   const config =

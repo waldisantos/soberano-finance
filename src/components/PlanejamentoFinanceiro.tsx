@@ -1,6 +1,6 @@
 import { PLANEJAMENTO_PADRAO } from "../data/PlanejamentoPadrao";
 import { carregarTransacoes } from "../services/transacoesStorage";
-import { carregarConfiguracao } from "../services/configuracaoStorage";
+import { carregarConfiguracao } from "../services/ConfiguracaoStorage";
 import ScoreFinanceiro from "./ScoreFinanceiro";
 import InsightsFinanceiros from "./InsightsFinanceiros";
 import SimuladorFinanceiro from "./SimuladorFinanceiro";
