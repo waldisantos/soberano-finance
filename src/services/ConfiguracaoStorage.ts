@@ -1,4 +1,4 @@
-import { CONFIGURACAO_PADRAO } from "../data/configuracaoPadrao";
+import { CONFIGURACAO_PADRAO } from "../data/ConfiguracaoPadrao";
 
 const KEY =
   "configuracaoFinanceira";

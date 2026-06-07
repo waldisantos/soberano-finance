@@ -1,4 +1,4 @@
-import { PLANEJAMENTO_PADRAO } from "../data/planejamentoPadrao";
+import { PLANEJAMENTO_PADRAO } from "../data/PlanejamentoPadrao";
 import { carregarTransacoes } from "../services/transacoesStorage";
 import { carregarConfiguracao } from "../services/configuracaoStorage";
 import ScoreFinanceiro from "./ScoreFinanceiro";

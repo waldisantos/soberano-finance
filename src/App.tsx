@@ -1,570 +1,119 @@
-import { useEffect, useState } from "react";
-import {
-  DEFAULT_ACCOUNTS,
-  DEFAULT_ASSET_TYPES,
-  DEFAULT_CATEGORIES,
-  DEFAULT_GOALS,
-} from "./data/defaults";
+import { useEffect, useMemo, useState } from 'react';
+import { loadData, saveData } from './services/storage';
+import { carregarTransacoes } from './services/transacoesStorage';
+import { movimentacaoInterna } from './services/categorizador';
+import { DEFAULT_ACCOUNTS, DEFAULT_ASSET_TYPES, DEFAULT_CATEGORIES, DEFAULT_GOALS } from './data/defaults';
+import { MOCK_PATRIMONIO } from './data/mockPatrimonio';
+import type { Patrimonio } from './types/patrimonio';
+import type { Transacao } from './types/transacao';
+import PatrimonioPage from './components/Patrimonio';
+import PatrimonioChart from './components/PatrimonioChart';
+import ImportarCSV from './components/ImportarCSV';
+import Transacoes from './components/Transacoes';
+import TopGastos from './components/TopGastos';
+import PlanejamentoFinanceiro from './components/PlanejamentoFinanceiro';
+import MetaPatrimonial from './components/MetaPatrimonial';
 
-import { loadData, saveData } from "./services/storage";
-
-import PatrimonioPage from "./components/Patrimonio";
-import { MOCK_PATRIMONIO } from "./data/mockPatrimonio";
-import type { Patrimonio } from "./types/patrimonio";
-import PatrimonioChart from "./components/PatrimonioChart";
-import ImportarCSV from "./components/ImportarCSV";
-import Transacoes from "./components/Transacoes";
-import {
-  carregarTransacoes,
-} from "./services/transacoesStorage";
-import TopGastos from "./components/TopGastos";
-import {
-  categorizar,
-  movimentacaoInterna,
-} from "./services/categorizador";
-import PlanejamentoFinanceiro from "./components/PlanejamentoFinanceiro";
-import MetaPatrimonial from "./components/MetaPatrimonial";
-
-
+type Goal = { id: number | string; name: string; current: number; target: number };
+type Page = 'dashboard' | 'planejamento' | 'metaPatrimonial' | 'patrimonio' | 'transacoes' | 'metas' | 'config' | 'importacao';
 
 export default function App() {
-  const [page, setPage] = useState("dashboard");
-
-  const [accounts] = useState(() =>
-    loadData("accounts", DEFAULT_ACCOUNTS)
-  );
-
-  const [categories] = useState(() =>
-    loadData("categories", DEFAULT_CATEGORIES)
-  );
-
-  const [assetTypes] = useState(() =>
-    loadData("assetTypes", DEFAULT_ASSET_TYPES)
-  );
-
-  const [goals] = useState(() =>
-    loadData("goals", DEFAULT_GOALS)
-  );
-
-  const [patrimonio, setPatrimonio] =
-    useState<Patrimonio[]>(() =>
-      loadData("patrimonio", MOCK_PATRIMONIO)
-    );
-
-  function adicionarPatrimonio(
-    item: Patrimonio
-  ) {
-    setPatrimonio((prev) => [
-      ...prev,
-      item,
-    ]);
-  }
-
-  function excluirPatrimonio(
-    id: number
-  ) {
-    setPatrimonio((prev) =>
-      prev.filter(
-        (item) => item.id !== id
-      )
-    );
-  }
+  const [currentPage, setCurrentPage] = useState<Page>('dashboard');
+  const [transacoes, setTransacoes] = useState<Transacao[]>([]);
+  const [patrimonio, setPatrimonio] = useState<Patrimonio[]>(() => loadData('patrimonio', MOCK_PATRIMONIO));
+  const [accounts] = useState<string[]>(() => loadData('accounts', DEFAULT_ACCOUNTS));
+  const [categories] = useState<string[]>(() => loadData('categories', DEFAULT_CATEGORIES));
+  const [assetTypes] = useState<string[]>(() => loadData('assetTypes', DEFAULT_ASSET_TYPES));
+  const [goals] = useState<Goal[]>(() => loadData('goals', DEFAULT_GOALS));
 
   useEffect(() => {
-    saveData(
-      "patrimonio",
-      patrimonio
-    );
+    setTransacoes(carregarTransacoes());
+  }, [currentPage]);
+
+  useEffect(() => {
+    saveData('patrimonio', patrimonio);
   }, [patrimonio]);
-const transacoes =
-  carregarTransacoes();
 
-const receitas = transacoes
-  .filter(
-    (t) =>
-      t.tipo === "receita" &&
-      !movimentacaoInterna(
-        t.descricao
-      )
-  )
-  .reduce(
-    (acc, t) => acc + t.valor,
-    0
-  );
+  const stats = useMemo(() => {
+    const filtradas = transacoes.filter(t => !movimentacaoInterna(t.descricao));
+    const receitas = filtradas.filter(t => t.tipo === 'receita').reduce((acc, t) => acc + t.valor, 0);
+    const despesas = filtradas.filter(t => t.tipo === 'despesa').reduce((acc, t) => acc + t.valor, 0);
+    const totalPatrimonio = patrimonio.reduce((acc, p) => acc + p.valor, 0);
+    const liquidez = patrimonio.filter(p => ['Conta Bancária', 'Ações', 'FII'].includes(p.tipo)).reduce((acc, p) => acc + p.valor, 0);
+    const investimentos = patrimonio.filter(p => ['Ações', 'FII'].includes(p.tipo)).reduce((acc, p) => acc + p.valor, 0);
+    const imoveis = patrimonio.filter(p => p.tipo === 'Imóvel').reduce((acc, p) => acc + p.valor, 0);
+    
+    return { receitas, despesas, saldo: receitas - despesas, taxaPoupanca: receitas > 0 ? ((receitas - despesas) / receitas) * 100 : 0, totalPatrimonio, liquidez, investimentos, imoveis };
+  }, [transacoes, patrimonio]);
 
-const despesas = transacoes
-  .filter(
-    (t) =>
-      t.tipo === "despesa" &&
-      !movimentacaoInterna(
-        t.descricao
-      )
-  )
-  .reduce(
-    (acc, t) => acc + t.valor,
-    0
-  );
-
-const saldo =
-  receitas - despesas;
-
-const taxaPoupanca =
-  receitas > 0
-    ? (
-        (saldo / receitas) *
-        100
-      ).toFixed(1)
-    : "0";
-  const patrimonioTotal =
-    patrimonio.reduce(
-      (acc, item) =>
-        acc + item.valor,
-      0
-    );
-
-  const liquidez = patrimonio
-    .filter(
-      (item) =>
-        item.tipo ===
-          "Conta Bancária" ||
-        item.tipo === "Ações" ||
-        item.tipo === "FII"
-    )
-    .reduce(
-      (acc, item) =>
-        acc + item.valor,
-      0
-    );
-
-  const totalImoveis =
-    patrimonio
-      .filter(
-        (item) =>
-          item.tipo ===
-          "Imóvel"
-      )
-      .reduce(
-        (acc, item) =>
-          acc + item.valor,
-        0
-      );
-
-  const totalVeiculos =
-    patrimonio
-      .filter(
-        (item) =>
-          item.tipo ===
-          "Veículo"
-      )
-      .reduce(
-        (acc, item) =>
-          acc + item.valor,
-        0
-      );
-
- const totalInvestimentos = patrimonio
-  .filter(
-    (item) =>
-      item.tipo === "Ações" ||
-      item.tipo === "FII"
-  )
-  .reduce(
-    (acc, item) =>
-      acc + item.valor,
-    0
-  );
-
-const chartData = Object.entries(
-  patrimonio.reduce(
-    (acc, item) => {
-      acc[item.tipo] =
-        (acc[item.tipo] || 0) +
-        item.valor;
-
+  const chartData = useMemo(() => {
+    const map = patrimonio.reduce((acc, p) => {
+      acc[p.tipo] = (acc[p.tipo] || 0) + p.valor;
       return acc;
-    },
-    {} as Record<string, number>
-  )
-).map(([name, value]) => ({
-  name,
-  value,
-}));
-  const card = {
-    background: "#ffffff",
-    borderRadius: "16px",
-    padding: "20px",
-    boxShadow:
-      "0 2px 10px rgba(0,0,0,0.08)",
-  };
+    }, {} as Record<string, number>);
+    return Object.entries(map).map(([name, value]) => ({ name, value }));
+  }, [patrimonio]);
 
-  const menuButton = {
-    border: "none",
-    background: "#0B57D0",
-    color: "#fff",
-    padding: "10px 16px",
-    borderRadius: "10px",
-    cursor: "pointer",
-    fontWeight: 600,
-  };
+  const adicionarPatrimonio = (item: Patrimonio) => setPatrimonio([...patrimonio, item]);
+  const excluirPatrimonio = (id: number) => setPatrimonio(patrimonio.filter(p => p.id !== id));
+
+  const navItems: { id: Page; label: string }[] = [
+    { id: 'dashboard', label: 'Dashboard' }, { id: 'transacoes', label: 'Transações' },
+    { id: 'patrimonio', label: 'Patrimônio' }, { id: 'metas', label: 'Metas' },
+    { id: 'planejamento', label: 'Planejamento' }, { id: 'metaPatrimonial', label: 'Meta Patrimonial' },
+    { id: 'config', label: 'Configurações' }, { id: 'importacao', label: 'Importar CSV' }
+  ];
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#f4f7fb",
-        padding: "24px",
-        fontFamily:
-          "Arial, sans-serif",
-      }}
-    >
-      <h1
-        style={{
-          textAlign: "center",
-          color: "#0B57D0",
-          marginBottom: "24px",
-        }}
-      >
-        Soberano Finance
-      </h1>
-
-      <div
-        style={{
-          display: "flex",
-          gap: "10px",
-          justifyContent:
-            "center",
-          flexWrap: "wrap",
-          marginBottom: "24px",
-        }}
-      >
-        <button
-          style={menuButton}
-          onClick={() =>
-            setPage(
-              "dashboard"
-            )
-          }
-        >
-          Dashboard
-        </button>
-<button
-  style={menuButton}
-  onClick={() =>
-    setPage("planejamento")
-  }
->
-  Planejamento
-</button>
-<button
-  style={menuButton}
-  onClick={() =>
-    setPage("metaPatrimonial")
-  }
->
-  Meta Patrimonial
-</button>
-        <button
-          style={menuButton}
-          onClick={() =>
-            setPage(
-              "patrimonio"
-            )
-          }
-        >
-          Patrimônio
-        </button>
-
-       <button
-  style={menuButton}
-  onClick={() =>
-    setPage("transacoes")
-  }
->
-  Transações
-</button>
-
-<button
-  style={menuButton}
-  onClick={() =>
-    setPage("metas")
-  }
->
-  Metas
-</button>
-        <button
-          style={menuButton}
-          onClick={() =>
-            setPage("config")
-          }
-        >
-          Configurações
-        </button>
-<button
-  style={menuButton}
-  onClick={() => setPage("importacao")}
->
-  Importação
-</button>
-      </div>
-      {page ===
-        "dashboard" && (
-        <>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns:
-                "repeat(auto-fit,minmax(220px,1fr))",
-              gap: "15px",
-              marginBottom:
-                "20px",
-            }}
-          >
-            <div style={card}>
-              <h3>
-                💰 Patrimônio
-                Total
-              </h3>
-              <h2>
-                {patrimonioTotal.toLocaleString(
-                  "pt-BR",
-                  {
-                    style:
-                      "currency",
-                    currency:
-                      "BRL",
-                  }
-                )}
-              </h2>
+    <div className="flex min-h-screen bg-gray-50">
+      <aside className="w-64 bg-gray-900 text-white p-6">
+        <h1 className="text-xl font-bold mb-8">Soberano Finance</h1>
+        <nav className="space-y-2">
+          {navItems.map(item => (
+            <button key={item.id} onClick={() => setCurrentPage(item.id)} className={`block w-full text-left p-2 rounded ${currentPage === item.id ? 'bg-blue-600' : 'hover:bg-gray-800'}`}>
+              {item.label}
+            </button>
+          ))}
+        </nav>
+      </aside>
+      <main className="flex-1 p-8">
+        {currentPage === 'dashboard' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-5 gap-4">
+              {[ { label: 'Patrimônio', val: stats.totalPatrimonio }, { label: 'Receitas', val: stats.receitas }, { label: 'Despesas', val: stats.despesas }, { label: 'Saldo', val: stats.saldo }, { label: 'Poupança %', val: stats.taxaPoupanca.toFixed(1) } ].map(s => (
+                <div key={s.label} className="bg-white p-4 rounded shadow">{s.label}<div className="text-xl font-bold">{s.val}</div></div>
+              ))}
             </div>
-
-           <div style={card}>
-  <h3>
-    💵 Receitas
-  </h3>
-
-  <h2>
-    {receitas.toLocaleString(
-      "pt-BR",
-      {
-        style: "currency",
-        currency: "BRL",
-      }
-    )}
-  </h2>
-</div>
-
-<div style={card}>
-  <h3>
-    💸 Despesas
-  </h3>
-
-  <h2>
-    {despesas.toLocaleString(
-      "pt-BR",
-      {
-        style: "currency",
-        currency: "BRL",
-      }
-    )}
-  </h2>
-</div>
-
-<div style={card}>
-  <h3>
-    📈 Saldo
-  </h3>
-
-  <h2>
-    {saldo.toLocaleString(
-      "pt-BR",
-      {
-        style: "currency",
-        currency: "BRL",
-      }
-    )}
-  </h2>
-</div>
-
-<div style={card}>
-  <h3>
-    🎯 Taxa de Poupança
-  </h3>
-
-  <h2>
-    {taxaPoupanca}%
-  </h2>
-</div>
+            <div className="grid grid-cols-2 gap-6">
+              <PatrimonioChart data={chartData} />
+              <TopGastos />
+            </div>
           </div>
-
-    <div style={card}>
-  <h2>
-    Resumo Patrimonial
-  </h2>
-  <p>
-    Patrimônio consolidado e
-    atualizado automaticamente.
-  </p>
-</div>
-
-<PatrimonioChart
-  data={chartData}
-/>
-<TopGastos />       
- </>
-      )}
-{page === "planejamento" && (
-  <PlanejamentoFinanceiro />
-)}
-{page === "metaPatrimonial" && (
-  <MetaPatrimonial />
-)}
-      {page === "patrimonio" && (
-        <PatrimonioPage
-          patrimonio={
-            patrimonio
-          }
-          onAdd={
-            adicionarPatrimonio
-          }
-          onDelete={
-            excluirPatrimonio
-          }
-        />
-      )}
-
-      {page === "metas" && (
-        <div style={card}>
-          <h2>Metas</h2>
-
-          {goals.map(
-            (goal: any) => {
-              const percent =
-                goal.target >
-                0
-                  ? (
-                      (goal.current /
-                        goal.target) *
-                      100
-                    ).toFixed(
-                      1
-                    )
-                  : 0;
-
-              return (
-                <div
-                  key={
-                    goal.id
-                  }
-                  style={{
-                    marginBottom:
-                      "20px",
-                  }}
-                >
-                  <strong>
-                    {
-                      goal.name
-                    }
-                  </strong>
-
-                  <p>
-                    R${" "}
-                    {goal.current.toLocaleString(
-                      "pt-BR"
-                    )}{" "}
-                    / R${" "}
-                    {goal.target.toLocaleString(
-                      "pt-BR"
-                    )}
-                  </p>
-
-                  <p>
-                    {
-                      percent
-                    }
-                    %
-                    concluído
-                  </p>
-                </div>
-              );
-            }
-          )}
-        </div>
-      )}
-{page === "transacoes" && (
-  <Transacoes />
-)}
-
-{page === "importacao" && (
-  <ImportarCSV />
-)}
-
-{page ===
-  "config" && (        <div style={card}>
-          <h2>
-            Configurações
-          </h2>
-
-          <h3>Contas</h3>
-          <ul>
-            {accounts.map(
-              (
-                item: string
-              ) => (
-                <li
-                  key={
-                    item
-                  }
-                >
-                  {item}
-                </li>
-              )
-            )}
-          </ul>
-
-          <hr />
-
-          <h3>
-            Categorias
-          </h3>
-          <ul>
-            {categories.map(
-              (
-                item: string
-              ) => (
-                <li
-                  key={
-                    item
-                  }
-                >
-                  {item}
-                </li>
-              )
-            )}
-          </ul>
-
-          <hr />
-
-          <h3>
-            Tipos de
-            Patrimônio
-          </h3>
-          <ul>
-            {assetTypes.map(
-              (
-                item: string
-              ) => (
-                <li
-                  key={
-                    item
-                  }
-                >
-                  {item}
-                </li>
-              )
-            )}
-          </ul>
-        </div>
-      )}
+        )}
+        {currentPage === 'patrimonio' && <PatrimonioPage patrimonio={patrimonio} onAdd={adicionarPatrimonio} onDelete={excluirPatrimonio} />}
+        {currentPage === 'transacoes' && <Transacoes />}
+        {currentPage === 'metas' && (
+          <div className="bg-white p-6 rounded shadow">
+            <h2 className="text-lg font-bold mb-4">Metas Financeiras</h2>
+            {goals.length === 0 ? <p>Nenhuma meta definida.</p> : goals.map(g => (
+              <div key={g.id} className="mb-4"><div>{g.name}</div><progress value={g.current} max={g.target} className="w-full" /></div>
+            ))}
+          </div>
+        )}
+        {currentPage === 'config' && (
+          <div className="grid grid-cols-3 gap-6">
+            {[ { title: 'Contas', data: accounts }, { title: 'Categorias', data: categories }, { title: 'Tipos de Patrimônio', data: assetTypes } ].map(c => (
+              <div key={c.title} className="bg-white p-4 rounded shadow">
+                <h3 className="font-bold mb-2">{c.title}</h3>
+                {c.data.length === 0 ? <p>Vazio</p> : c.data.map(i => <div key={i}>{i}</div>)}
+              </div>
+            ))}
+          </div>
+        )}
+        {currentPage === 'importacao' && <ImportarCSV />}
+        {currentPage === 'planejamento' && <PlanejamentoFinanceiro />}
+        {currentPage === 'metaPatrimonial' && <MetaPatrimonial />}
+      </main>
     </div>
   );
 }

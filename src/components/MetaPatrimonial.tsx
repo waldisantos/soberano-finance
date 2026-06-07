@@ -138,7 +138,7 @@ export default function MetaPatrimonial() {
       >
         Salvar
       </button>
-<ProjecaoPatrimonial />
+<ProjecaoPatrimonial />16:36 06/06/202616:36 06/06/2026
     </div>
   );
 }

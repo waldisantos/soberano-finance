@@ -13,6 +13,8 @@ export interface Transacao {
 
   categoria: string;
 
+  subcategoria?: string;
+
   origem:
     | "conta"
     | "cartao";
